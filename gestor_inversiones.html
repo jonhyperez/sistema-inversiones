@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal Cuantitativa Pro</title>
+    <!-- Script Oficial de TradingView -->
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; color: #1f2937; margin: 0; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        
+        /* Semáforo Macro */
+        .macro-banner { padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; display: flex; justify-content: space-between; }
+        .macro-bull { background-color: #d1fae5; color: #065f46; border: 1px solid #34d399; }
+        
+        /* Controles Superiores */
+        .controls-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        .tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+        .tab-btn { padding: 10px 18px; border: none; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-weight: bold; color: #4b5563; }
+        .tab-btn.active { background: #2563eb; color: white; }
+        .tab-btn.fav-tab { background: #fef08a; color: #854d0e; }
+        .tab-btn.fav-tab.active { background: #eab308; color: white; }
+
+        .filters { display: flex; gap: 15px; align-items: center; }
+        input[type="text"], select { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; }
+        .btn-export { background: #10b981; color: white; border: none; padding: 9px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+
+        /* Tabla */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background-color: #f9fafb; font-weight: 600; color: #374151; cursor: pointer; user-select: none; }
+        th:hover { background-color: #e5e7eb; }
+        th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #e5e7eb; }
+        tr:hover { background-color: #f8fafc; }
+        
+        .positive { color: #059669; font-weight: bold; }
+        .negative { color: #dc2626; font-weight: bold; }
+        .star-btn { background: none; border: none; font-size: 18px; cursor: pointer; color: #d1d5db; }
+        .star-btn.active { color: #eab308; }
+        .btn-chart { background: #2563eb; color: white; border: none; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+
+        /* Modal TradingView */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); }
+        .modal-content { background-color: #fff; margin: 5% auto; padding: 20px; border-radius: 12px; width: 85%; max-width: 1000px; }
+        .close-btn { color: #aaa; float: right; font-size: 28px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="macro-banner macro-bull" id="macro-indicator">
+        <span>🚦 Análisis Cuantitativo de Portafolio</span>
+        <span>Conectado a Datos Reales</span>
+    </div>
+
+    <div class="controls-header">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="cambiarEstrategia('magica', this)">🪄 Fórmula Mágica</button>
+            <button class="tab-btn" onclick="cambiarEstrategia('corto', this)">🛡️ Defensivo</button>
+            <button class="tab-btn" onclick="cambiarEstrategia('largo', this)">🌳 Crecimiento</button>
+            <button class="tab-btn" onclick="cambiarEstrategia('dividendos', this)">💰 Dividendos</button>
+            <button class="tab-btn fav-tab" onclick="cambiarEstrategia('favoritos', this)">⭐ Mi Watchlist</button>
+        </div>
+
+        <div class="filters">
+            <input type="text" id="buscador" placeholder="Buscar Ticker..." onkeyup="renderTabla()">
+            <select id="filtroSector" onchange="renderTabla()">
+                <option value="Todos">Todos los Sectores</option>
+                <option value="Technology">Tecnología</option>
+                <option value="Healthcare">Salud</option>
+                <option value="Consumer Defensive">Consumo Defensivo</option>
+                <option value="Financial Services">Finanzas</option>
+                <option value="Energy">Energía</option>
+            </select>
+            <button class="btn-export" onclick="exportarCSV()">📥 Exportar CSV</button>
+        </div>
+    </div>
+
+    <table id="tabla-acciones">
+        <thead>
+            <tr>
+                <th>Fav</th>
+                <th onclick="ordenar('ticker')">Ticker ↕</th>
+                <th onclick="ordenar('precio')">Precio ↕</th>
+                <th onclick="ordenar('fair_value')">Margen Seg. ↕</th>
+                <th onclick="ordenar('f_score')">F-Score ↕</th>
+                <th onclick="ordenar('roic')">ROIC ↕</th>
+                <th onclick="ordenar('earnings_yield')">Yield ↕</th>
+                <th onclick="ordenar('deuda_equity')">Deuda ↕</th>
+                <th onclick="ordenar('score')">Ranking ↕</th>
+                <th>Gráfico</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="10" style="text-align:center;">Cargando datos del mercado...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal TradingView -->
+<div id="chartModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="cerrarGrafico()">&times;</span>
+        <h2 id="modal-ticker-title">Análisis Técnico</h2>
+        <div id="tradingview_widget" style="height: 500px;"></div>
+    </div>
+</div>
+
+<script>
+    let empresasBase = []; 
+    let estrategiaActual = 'magica';
+    let favoritos = JSON.parse(localStorage.getItem('watchlist')) || [];
+    let columnaOrden = 'score';
+    let ordenAscendente = true;
+
+    // 1. CONEXIÓN AL SCRIPT DE PYTHON
+    async function cargarDatosReales() {
+        try {
+            const respuesta = await fetch('datos_empresas.json');
+            if (!respuesta.ok) throw new Error("Archivo no encontrado");
+            empresasBase = await respuesta.json();
+            renderTabla();
+        } catch (error) {
+            console.error("Error:", error);
+            document.querySelector("#tabla-acciones tbody").innerHTML = `
+                <tr>
+                    <td colspan='10' style='text-align:center; padding: 30px; color: #dc2626;'>
+                        <strong>⚠️ No se pudo cargar el archivo 'datos_empresas.json'.</strong><br><br>
+                        1. Asegúrate de haber ejecutado el script de Python (motor.py) primero.<br>
+                        2. Debido a la seguridad de los navegadores, debes abrir este HTML usando un servidor local (ej. Live Server en VS Code o ejecutando 'python -m http.server' en tu terminal), no con doble clic.
+                    </td>
+                </tr>`;
+        }
+    }
+
+    function cambiarEstrategia(estrategia, boton) {
+        estrategiaActual = estrategia;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        boton.classList.add('active');
+        renderTabla();
+    }
+
+    function toggleFavorito(ticker) {
+        if (favoritos.includes(ticker)) {
+            favoritos = favoritos.filter(t => t !== ticker);
+        } else {
+            favoritos.push(ticker);
+        }
+        localStorage.setItem('watchlist', JSON.stringify(favoritos));
+        renderTabla();
+    }
+
+    function ordenar(columna) {
+        if (columnaOrden === columna) {
+            ordenAscendente = !ordenAscendente;
+        } else {
+            columnaOrden = columna;
+            ordenAscendente = true;
+        }
+        renderTabla();
+    }
+
+    function calcularMargen(precio, valorJusto) {
+        if (!valorJusto || valorJusto === 0) return 0;
+        return ((valorJusto - precio) / valorJusto) * 100;
+    }
+
+    function evaluarEmpresas() {
+        let empresas = JSON.parse(JSON.stringify(empresasBase));
+
+        // Lógica de Estrategias
+        if (estrategiaActual === 'magica') {
+            empresas.sort((a, b) => b.roic - a.roic);
+            empresas.forEach((e, i) => e.rank_roic = i + 1);
+            empresas.sort((a, b) => b.earnings_yield - a.earnings_yield);
+            empresas.forEach((e, i) => e.rank_yield = i + 1);
+            empresas.forEach(e => e.score = e.rank_roic + e.rank_yield);
+        } else if (estrategiaActual === 'corto') {
+            empresas = empresas.filter(e => e.beta < 1.0);
+            empresas.forEach(e => e.score = e.beta);
+        } else if (estrategiaActual === 'largo') {
+            empresas = empresas.filter(e => e.crecimiento_ventas > 0);
+            empresas.sort((a, b) => b.roic - a.roic);
+            empresas.forEach((e, i) => e.score = i + 1);
+        } else if (estrategiaActual === 'dividendos') {
+            empresas = empresas.filter(e => e.dividend_yield > 0 && e.payout_ratio < 75);
+            empresas.sort((a, b) => b.dividend_yield - a.dividend_yield);
+            empresas.forEach((e, i) => e.score = i + 1);
+        } else if (estrategiaActual === 'favoritos') {
+            empresas = empresas.filter(e => favoritos.includes(e.ticker));
+            empresas.forEach((e, i) => e.score = i + 1);
+        }
+
+        // Filtros UI
+        const busqueda = document.getElementById("buscador").value.toUpperCase();
+        const sectorFiltro = document.getElementById("filtroSector").value;
+        
+        if (busqueda) empresas = empresas.filter(e => e.ticker.includes(busqueda) || e.nombre.toUpperCase().includes(busqueda));
+        if (sectorFiltro !== "Todos") empresas = empresas.filter(e => e.sector === sectorFiltro);
+
+        // Ordenamiento
+        empresas.sort((a, b) => {
+            let valA = a[columnaOrden] || 0; 
+            let valB = b[columnaOrden] || 0;
+            if (columnaOrden === 'fair_value') { 
+                valA = calcularMargen(a.precio, a.fair_value); valB = calcularMargen(b.precio, b.fair_value);
+            }
+            if (valA < valB) return ordenAscendente ? -1 : 1;
+            if (valA > valB) return ordenAscendente ? 1 : -1;
+            return 0;
+        });
+
+        return empresas;
+    }
+
+    function renderTabla() {
+        const tbody = document.querySelector("#tabla-acciones tbody");
+        tbody.innerHTML = "";
+        const datos = evaluarEmpresas();
+
+        if (datos.length === 0) {
+            tbody.innerHTML = "<tr><td colspan='10' style='text-align:center;'>No hay empresas que cumplan los criterios.</td></tr>";
+            return;
+        }
+
+        datos.forEach((e) => {
+            const esFav = favoritos.includes(e.ticker);
+            const margen = calcularMargen(e.precio, e.fair_value);
+            const margenColor = margen > 0 ? 'positive' : (margen < 0 ? 'negative' : '');
+            const fscoreColor = e.f_score >= 7 ? 'positive' : (e.f_score <= 4 ? 'negative' : '');
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td><button class="star-btn ${esFav ? 'active' : ''}" onclick="toggleFavorito('${e.ticker}')">★</button></td>
+                <td><strong>${e.ticker}</strong><br><span style="font-size:10px; color:#6b7280">${e.sector}</span></td>
+                <td>$${e.precio.toFixed(2)}</td>
+                <td class="${margenColor}">${margen > 0 ? '+' : ''}${margen.toFixed(1)}%</td>
+                <td class="${fscoreColor}"><strong>${e.f_score}/9</strong></td>
+                <td>${e.roic.toFixed(1)}%</td>
+                <td>${e.earnings_yield.toFixed(1)}%</td>
+                <td>${e.deuda_equity.toFixed(1)}</td>
+                <td><strong>${e.score.toFixed(1)}</strong></td>
+                <td><button class="btn-chart" onclick="abrirGrafico('${e.ticker}')">📊</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function exportarCSV() {
+        const datos = evaluarEmpresas();
+        let csvContent = "data:text/csv;charset=utf-8,Ticker,Precio,ROIC,Earnings_Yield,Deuda,Score\n";
+        datos.forEach(e => {
+            let row = `${e.ticker},${e.precio},${e.roic},${e.earnings_yield},${e.deuda_equity},${e.score}`;
+            csvContent += row + "\r\n";
+        });
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "escaneo_cuantitativo.csv");
+        document.body.appendChild(link);
+        link.click();
+    }
+
+    // TradingView Modal
+    function abrirGrafico(ticker) {
+        document.getElementById('chartModal').style.display = 'block';
+        document.getElementById('modal-ticker-title').innerText = ticker;
+        document.getElementById('tradingview_widget').innerHTML = '';
+        new TradingView.widget({ "autosize": true, "symbol": ticker, "interval": "D", "timezone": "Etc/UTC", "theme": "light", "style": "1", "locale": "es", "enable_publishing": false, "container_id": "tradingview_widget" });
+    }
+    function cerrarGrafico() { document.getElementById('chartModal').style.display = 'none'; document.getElementById('tradingview_widget').innerHTML = ''; }
+    window.onclick = function(event) { if (event.target == document.getElementById('chartModal')) cerrarGrafico(); }
+
+    // Iniciar
+    cargarDatosReales();
+</script>
+</body>
+</html>
