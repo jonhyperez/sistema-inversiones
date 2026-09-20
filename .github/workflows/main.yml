@@ -1,0 +1,33 @@
+name: Motor Cuantitativo Automático
+
+on:
+  schedule:
+    - cron: '0 22 * * 1-5' # Se ejecuta de lunes a viernes (aprox al cierre del mercado)
+  workflow_dispatch: # Nos permite ejecutarlo manualmente con un botón
+
+jobs:
+  actualizar-datos:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v3
+        
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      - name: Instalar librerías financieras
+        run: pip install yfinance pandas numpy
+        
+      - name: Arrancar el motor de Python
+        run: python motor.py
+        
+      - name: Guardar los datos nuevos en la nube
+        run: |
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          git add datos_empresas.json
+          git commit -m "Actualización automática de datos diarios" || echo "No hay cambios hoy"
+          git push
